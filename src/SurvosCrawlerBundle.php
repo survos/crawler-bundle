@@ -33,13 +33,13 @@ class SurvosCrawlerBundle extends AbstractBundle
 //            ->setArgument('$bag', new Reference('parameter_bag'))
         ;
 
-        // foreach ([CrawlCommand::class, MakeSmokeTestCommand::class, GenerateTestsCommand::class] as $commandClass) {
-        //     $builder->autowire($commandClass)
-        //         ->setAutoconfigured(true)
-        //         ->setPublic(true)
-        //         ->setAutowired(true)
-        //         ->addTag('console.command');;
-        // }
+        foreach ([CrawlCommand::class, GenerateTestsCommand::class] as $commandClass) {
+            $builder->autowire($commandClass)
+                ->setAutoconfigured(true)
+                ->setPublic(true)
+                ->setAutowired(true)
+                ->addTag('console.command');;
+        }
 
 
         $crawler_service_id = 'survos.crawler_service';
