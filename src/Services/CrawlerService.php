@@ -322,7 +322,26 @@ class CrawlerService
             $this->logger->error($msg);
         }
         if ($status == 500) {
-            //dd('stopped, 500 error');
+            // Create detailed 500 error report
+            $errorReport = [
+                'status' => 500,
+                'url' => $url,
+                'route' => $link->getRoute(),
+                'path' => $link->getPath(),
+                'user' => $link->username ?: 'visitor',
+                'found_on' => $link->getFoundOn(),
+                'duration' => $link->getDuration() . 'ms',
+                'timestamp' => date('Y-m-d H:i:s')
+            ];
+            
+            // Log detailed error information
+            $this->logger->critical('500 Internal Server Error detected:', $errorReport);
+            
+            // Set link status to indicate critical error
+            $link->setLinkStatus('500_error');
+            
+            // Return the link with error info so calling code can decide whether to break
+            return $link;
         }
 
 

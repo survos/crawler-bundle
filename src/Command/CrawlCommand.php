@@ -206,6 +206,29 @@ class CrawlCommand extends Command
                 ));
 
                 $crawlerService->scrape($link);
+                
+                // Handle 500 errors with detailed reporting and break
+                if ($link->getStatusCode() === 500) {
+                    $fullUrl = rtrim($crawlerService->getBaseUrl(), '/') . '/' . ltrim($link->getPath(), '/');
+                    
+                    $io->error([
+                        '🚨 500 INTERNAL SERVER ERROR DETECTED 🚨',
+                        '',
+                        '📍 URL: ' . $fullUrl,
+                        '🔗 Route: ' . ($link->getRoute() ?: 'unknown'),
+                        '👤 User: ' . ($link->username ?: 'visitor'),
+                        '📍 Found on: ' . ($link->getFoundOn() ?: 'unknown'),
+                        '⏱️  Duration: ' . ($link->getDuration() ? $link->getDuration() . 'ms' : 'unknown'),
+                        '',
+                        '🔗 Direct link to test: ' . $fullUrl,
+                        ''
+                    ]);
+                    
+                    $io->warning('Crawler stopped due to 500 error. Fix the issue above before continuing.');
+                    return Command::FAILURE;
+                }
+                
+                // Handle other non-200 status codes
                 if ($link->getStatusCode() <> 200) {
                     $this->logger->warning(sprintf("%s %s (%s)",
                         $link->getPath(), $link->getRoute(), $link->getStatusCode()));
