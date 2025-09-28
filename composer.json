@@ -1,8 +1,13 @@
 {
     "name": "survos/crawler-bundle",
     "description": "Provides a way to create tests that crawl a site",
+    "keywords": [
+        "dev",
+        "symfony",
+        "crawler",
+        "testiong"
+    ],
     "license": "MIT",
-    "keywords": ["dev", "symfony", "crawler", "testiong"],
     "authors": [
         {
             "name": "Tac Tacelosky",
@@ -20,14 +25,14 @@
         "symfony/console": "^7.3",
         "symfony/security-bundle": "^7.3",
         "symfony/http-client-contracts": "^3.5",
-        "doctrine/orm": "^3.3",
-        "symfony/routing": "^7.2",
+        "doctrine/orm": "^2.12 || ^3.3",
+        "symfony/routing": "^7.3",
         "zenstruck/browser": "^1.9",
         "nette/php-generator": "^4.1"
     },
     "require-dev": {
         "phpstan/phpstan": "^2.0",
-        "phpunit/phpunit": "^12.1.4"
+        "phpunit/phpunit": "^12"
     },
     "autoload": {
         "psr-4": {
@@ -36,30 +41,7 @@
     },
     "extra": {
         "branch-alias": {
-            "dev-master": "2.0-dev"
+            "dev-master": "2.1-dev"
         }
-    },
-    "conflict": {
-        "survos/api-grid-bundle": "<1.2.57",
-        "survos/auth-bundle": "<1.2.57",
-        "survos/barcode-bundle": "<1.2.57",
-        "survos/bootstrap-bundle": "<1.2.57",
-        "survos/command-bundle": "<1.2.57",
-        "survos/core-bundle": "<1.2.57",
-        "survos/doc-bundle": "<1.2.57",
-        "survos/faker-bundle": "<1.2.57",
-        "survos/grid-bundle": "<1.2.57",
-        "survos/grid-group-bundle": "<1.2.57",
-        "survos/html-prettify-bundle": "<1.2.57",
-        "survos/import-bridge": "<1.2.57",
-        "survos/inspection-bundle": "<1.2.57",
-        "survos/location-bundle": "<1.2.57",
-        "survos/maker-bundle": "<1.2.57",
-        "survos/providence-bundle": "<1.2.57",
-        "survos/ruler-bundle": "<1.2.57",
-        "survos/stripe-product": "<1.2.57",
-        "survos/tree-bundle": "<1.2.57",
-        "survos/wiki-bundle": "<1.2.57",
-        "survos/workflow-helper-bundle": "<1.2.57"
     }
 }
