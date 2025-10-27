@@ -1,5 +1,6 @@
 {
     "name": "survos/crawler-bundle",
+    "minimum-stability": "beta",
     "description": "Provides a way to create tests that crawl a site",
     "keywords": [
         "dev",
