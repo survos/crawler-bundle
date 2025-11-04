@@ -1,6 +1,5 @@
 {
     "name": "survos/crawler-bundle",
-    "minimum-stability": "beta",
     "description": "Provides a way to create tests that crawl a site",
     "keywords": [
         "dev",
@@ -26,7 +25,7 @@
         "symfony/console": "^7.3||^8.0",
         "symfony/security-bundle": "^7.3||^8.0",
         "symfony/http-client-contracts": "^3.5",
-        "doctrine/orm": "^3.5.x-dev|^4.0.x-dev",
+        "doctrine/orm": "^3.4|^4.0",
         "symfony/routing": "^7.3|^8.0",
         "zenstruck/browser": "^1.9",
         "nette/php-generator": "^4.1"
