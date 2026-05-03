@@ -126,6 +126,18 @@ survos_crawler:
 bin/console survos:crawl
 ```
 
+To crawl only links visible from the rendered pages, skip the generated `@smoke` route seed:
+
+```bash
+bin/console survos:crawl /my --skip-smoke-routes
+```
+
+By default, the command crawls the visitor plus every username configured in `survos_crawler.users`. To crawl only one configured user, pass `--username`; the username must already be in the configured list. No password is needed for the internal Symfony browser login.
+
+```bash
+bin/console survos:crawl /my --skip-smoke-routes --username=ana@scanstation.ai
+```
+
 Note that the first time this runs, it will create a BaseVisitLinksTest.php in the tests directory, so that phpunit works.  
 
 The command visits every link and stores the results in crawldata.json. This is then used by the tests to make sure they're right.

@@ -2,6 +2,7 @@
 
 namespace Survos\CrawlerBundle;
 
+use Survos\CoreBundle\Traits\HasConfigurableRoutes;
 use Survos\CrawlerBundle\Command\CrawlCommand;
 use Survos\CrawlerBundle\Command\GenerateTestsCommand;
 // use Survos\CrawlerBundle\Command\MakeSmokeTestCommand;
@@ -18,11 +19,22 @@ use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInt
 
 class SurvosCrawlerBundle extends AbstractBundle
 {
+    use HasConfigurableRoutes;
+
     /**
      * @param array<mixed> $config
      */
+    public function build(ContainerBuilder $container): void
+    {
+        parent::build($container);
+        $this->addRouteLoaderCompilerPass($container);
+    }
+
     public function loadExtension(array $config, ContainerConfigurator $container, ContainerBuilder $builder): void
     {
+        $this->captureRouteConfig($config);
+        $this->registerRouteLoader($builder);
+
 
         // if controller class extends AbstractController, the tags and injected services aren't needed.
         $builder->autowire(CrawlerController::class)
@@ -81,9 +93,9 @@ class SurvosCrawlerBundle extends AbstractBundle
 
     public function configure(DefinitionConfigurator $definition): void
     {
-        // since the configuration is short, we can add it here
-        $definition->rootNode()
-            ->children()
+        $children = $definition->rootNode()->children();
+        $this->addRouteOptions($children, '/crawler');
+        $children
 //            ->arrayNode('routes_to_skip')->defaultValue(['app_logout'])->end()
             ->arrayNode('users')->prototype('variable')->end()->end()
             ->arrayNode('routes_to_ignore')->prototype('variable')->end()->end()
@@ -99,6 +111,6 @@ class SurvosCrawlerBundle extends AbstractBundle
             ->scalarNode('submit_button')->defaultValue('.btn')->end()
             ->scalarNode('user_class')->defaultValue('App\\Entity\\User')->end()
             ->scalarNode('max_depth')->defaultValue(1)->end()
-            ->end();;
+        ->end();
     }
 }

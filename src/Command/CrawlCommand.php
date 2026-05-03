@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Survos\CrawlerBundle\Command;
 
 //use App\Entity\User;
@@ -110,6 +112,8 @@ class CrawlCommand extends Command
             new InputOption('locale', null, InputOption::VALUE_REQUIRED, 'Crawler will crawl only given locale url', 'en'),
             new InputOption('security-firewall', null, InputOption::VALUE_REQUIRED, 'Firewall name', 'secured_area'),
             new InputOption('ignore-route-keyword', null, InputOption::VALUE_REQUIRED, 'regex to ignore routes'),
+            new InputOption('skip-smoke-routes', null, InputOption::VALUE_NONE, 'Skip generated @smoke routes and only crawl the initial path plus discovered links'),
+            new InputOption('username', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Configured username to crawl; repeat to crawl more than one configured user'),
 //            new InputOption('ignore-route-keyword', null, InputOption::VALUE_IS_ARRAY | InputOption::VALUE_REQUIRED, 'Skip routes containing this string', []),
 
         ]);
@@ -134,25 +138,44 @@ class CrawlCommand extends Command
 
         $crawlerService = $this->crawlerService;
 
-        //
-        $usernames = $this->crawlerService->getUsernames();
+        $configuredUsernames = $this->crawlerService->getUsernames();
+        $selectedUsernames = $input->getOption('username');
+        $unknownUsernames = array_diff($selectedUsernames, $configuredUsernames);
+        if ($unknownUsernames) {
+            $io->error(sprintf(
+                'Unknown crawler username(s): %s. Allowed configured username(s): %s',
+                implode(', ', $unknownUsernames),
+                $configuredUsernames ? implode(', ', $configuredUsernames) : '(none)'
+            ));
+
+            return Command::FAILURE;
+        }
+
+        $usernames = $selectedUsernames ?: $configuredUsernames;
 
         $crawlerService->resetLinkList();
 
         $routesToIgnore = $this->crawlerService->getRoutesToIgnore();
+        $skipSmokeRoutes = (bool)$input->getOption('skip-smoke-routes');
+        $initialPath = $this->normalizeInitialPath($input->getArgument('startingLink'), $crawlerService->getInitialPath());
 
-
-        $routes = RoutesExtractor::extractRoutesFromRouter($this->router);
-        foreach ($routes as $route) {
-            if (in_array($route["routeName"], $routesToIgnore)) {
-                continue;
+        $staticLinks = [];
+        if (!$skipSmokeRoutes) {
+            $routes = RoutesExtractor::extractRoutesFromRouter($this->router);
+            foreach ($routes as $route) {
+                if (in_array($route["routeName"], $routesToIgnore)) {
+                    continue;
+                }
+                $staticLinks[] = $route;
             }
-            $staticLinks[] = $route;
+        } else {
+            $io->info('Skipping generated @smoke routes; crawling only the initial path and links discovered from rendered pages.');
         }
 
 
         // start with null, so that it is logged out.  Otherwise, it gets the last user!  BUG
         foreach ([null, ...$usernames] as $username) {
+            $user = null;
             //        foreach ($usernames as $user) {
             try {
                 if ($username  && ($user = $this->crawlerService->getUser($username))) {
@@ -169,13 +192,13 @@ class CrawlCommand extends Command
                 return Command::FAILURE;
             }
             $this->crawlerService->checkIfCrawlerClient();
-            $io->info(sprintf("Crawling %s as %s", $crawlerService->getInitialPath(), $username ?: 'Visitor'));
+            $io->info(sprintf("Crawling %s as %s", $initialPath, $username ?: 'Visitor'));
 
             foreach ($staticLinks as $route) {
                 $link = $crawlerService->addLink($username, $route["routePath"], foundOn: '@smoke', route: $route["routeName"]);
             }
 
-            $link = $crawlerService->addLink($username, $crawlerService->getInitialPath(), foundOn: '@initial');
+            $link = $crawlerService->addLink($username, $initialPath, foundOn: '@initial');
 
 
             $link->username = $username;
@@ -381,6 +404,22 @@ At most, <comment>%s</comment> pages will be crawled.', $this->domain, $this->st
         }
 
         return self::SUCCESS;
+    }
+
+    private function normalizeInitialPath(?string $startingLink, string $defaultInitialPath): string
+    {
+        if (!$startingLink) {
+            return $defaultInitialPath;
+        }
+
+        if (!str_starts_with($startingLink, 'http')) {
+            return $startingLink;
+        }
+
+        $path = parse_url($startingLink, PHP_URL_PATH) ?: '/';
+        $query = parse_url($startingLink, PHP_URL_QUERY);
+
+        return $query ? sprintf('%s?%s', $path, $query) : $path;
     }
 
     /**
