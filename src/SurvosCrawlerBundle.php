@@ -2,7 +2,7 @@
 
 namespace Survos\CrawlerBundle;
 
-use Survos\CoreBundle\Traits\HasConfigurableRoutes;
+use Survos\Kit\Traits\HasConfigurableRoutes;
 use Survos\CrawlerBundle\Command\CrawlCommand;
 use Survos\CrawlerBundle\Command\GenerateTestsCommand;
 // use Survos\CrawlerBundle\Command\MakeSmokeTestCommand;
@@ -13,11 +13,11 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\DependencyInjection\Reference;
-use Symfony\Component\HttpKernel\Bundle\AbstractBundle;
+use Survos\Kit\AbstractSurvosBundle;
 use Symfony\Component\HttpKernel\Bundle\Bundle;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 
-class SurvosCrawlerBundle extends AbstractBundle
+class SurvosCrawlerBundle extends AbstractSurvosBundle
 {
     use HasConfigurableRoutes;
 
