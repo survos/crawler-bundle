@@ -138,6 +138,7 @@ class CrawlerService
     public function addLink(?string $username, string $path, ?string $foundOn = null,?string $route = null): Link
     {
         //        $key = $this->linkListKey($username, $path);
+        $username ??= '';
 
         if (! array_key_exists($username, $this->linkList)) {
             $this->linkList[$username] = [];
@@ -155,7 +156,7 @@ class CrawlerService
 
     public function getLinkList(?string $username): array
     {
-        return $this->linkList[$username];
+        return $this->linkList[$username ?? ''] ?? [];
     }
 
     public function getEntireLinkList(): array
@@ -166,6 +167,19 @@ class CrawlerService
     public function resetLinkList(): void
     {
         $this->linkList = [];
+    }
+
+    /**
+     * routeVisits caps repeated visits to variations of the same route (e.g. many
+     * donation_show/{id} links) within a single user's crawl pass. It must be reset
+     * between users: left alone, it accumulates across the whole multi-user crawl
+     * run, since every user visits the same @smoke routes — by the last configured
+     * user, every route's cumulative count from prior users already exceeds
+     * maxVisits, so that user's entire crawl gets short-circuited as "already visited".
+     */
+    public function resetRouteVisits(): void
+    {
+        $this->routeVisits = [];
     }
 
     public function getPendingLinks(?string $username): array

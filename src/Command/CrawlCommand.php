@@ -77,6 +77,7 @@ class CrawlCommand
 
         $linksToCrawl = [];
         foreach ([null, ...$usernames] as $currentUser) {
+            $crawlerService->resetRouteVisits();
             $user = null;
             try {
                 if ($currentUser && ($user = $this->crawlerService->getUser($currentUser))) {
@@ -111,7 +112,6 @@ class CrawlCommand
 
                 if (preg_match('/javascript/', $link->getPath())) {
                     $io->info("Rejecting " . $link->getPath() . ' ' . $link->getRoute());
-                    dd($link);
                     continue;
                 }
 
