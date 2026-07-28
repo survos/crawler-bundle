@@ -255,13 +255,13 @@ class CrawlerService
             return $link;
         }
 
-        $this->setRoute($link);
+        if (!$link->getRoute()) {
+            $this->setRoute($link);
+        }
 
         if (!$link->getRoute()) {
             $link->setLinkStatus($link::STATUS_IGNORED);
             return $link;
-            $link->setHtml('missing');
-            dd($link);
         }
         assert($link->getRoute(), "missing route  in path " . $link->getPath());
 
@@ -316,24 +316,25 @@ class CrawlerService
             die('we should be following redirects, option in the request method?...');
         }
 
-        if ($status <> 200) {
-            //echo $response->getContent();exit;
-            // @todo: what should we do here?
-//            dump($response->getContent());
-            $this->logger->error("$url " . $status . " found on \n" . $this->baseUrl . $link->getFoundOn());
-            //dd($response->getStatusCode(), $this->baseUrl . $link->getPath(), $link->getFoundOn());
-            $html = ''; // false;
-        } else {
-            $html = $response->getContent();
+        $html = $response->getContent();
+        if (200 !== $status) {
+            // Keep the raw response (in dev, this is Symfony's full debug/exception
+            // page) on the link so callers can surface the real error instead of
+            // just crawl bookkeeping — see CrawlCommand's fatal-error report.
+            $link->setHtml($html);
         }
         // hmm, how should 301's be tracked?
 
-        if (!in_array($status, [200, 302, 301])) {
+        // Non-200/301/302 statuses are routine while crawling as different
+        // roles (403 for the wrong user, 404/405 for a smoke route hit without
+        // its real parameters) — log at info, not error, so real problems
+        // (500, handled separately below) aren't buried in expected noise.
+        if (!in_array($status, [200, 302, 301, 500])) {
             $msg = ($link->username ? $link->username . '@' : '') . $this->baseUrl .
                 trim($link->getPath(), '/') . ' ' .
-                $link->getRoute() . ' caused a ' . $status . ' found on '
+                $link->getRoute() . ' returned ' . $status . ' found on '
                 . $link->foundOn;
-            $this->logger->error($msg);
+            $this->logger->info($msg);
         }
         if ($status == 500) {
             // Create detailed 500 error report
@@ -365,7 +366,7 @@ class CrawlerService
 
         //        assert(array_key_exists('info', $info));
         //        $crawler = $client->request('GET',  $base . $path);
-        if (! $html) {
+        if (200 !== $status || !$html) {
             return $link;
         }
 
@@ -381,19 +382,21 @@ class CrawlerService
                     return null;
                 }
 
-                //if $href has / delete , do dd
-                if (preg_match('/\/delete/', $href)) {
-                    dd($href);
+                // Non-navigable schemes: never worth queuing, they're not real
+                // pages to test (dropdown/JS toggles, mail/phone links, etc.).
+                if (preg_match('#^(javascript|mailto|tel|sms):#i', trim($href))) {
+                    return null;
                 }
 
+                if (str_contains($href, '/delete/')) {
+                    return null;
+                }
 
                 $cleanHref = str_replace($this->baseUrl, '', $href);
                 $cleanHref = u($cleanHref)->before('#')->toString();
                 if (empty($cleanHref)) {
                     return null;
                 }
-                if (str_contains($cleanHref, '/delete/')) { return null; }
-//                var_dump($cleanHref);
                 if (preg_match('/^\/(_profiler|_wdt|css|images|js)\//i', $cleanHref)) {
 //                    echo "====================================";
 //                    dd($cleanHref);
@@ -445,9 +448,7 @@ class CrawlerService
                 $this->logger->error("Invalid path: $urlPath from $path");
                 return;
             }
-                $this->logger->info($urlPath);
                 $context = $this->router->getContext();
-                $matcher = new UrlMatcher($this->router->getRouteCollection(), $context);
                 $matcher = new TraceableUrlMatcher($this->router->getRouteCollection(), $context);
 //                foreach ($this->expressionLanguageProviders as $provider) {
 //                    $matcher->addExpressionLanguageProvider($provider);

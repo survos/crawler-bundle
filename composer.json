@@ -33,7 +33,12 @@
     },
     "require-dev": {
         "phpstan/phpstan": "^2.0",
-        "phpunit/phpunit": "^13.0"
+        "phpunit/phpunit": "^13.0",
+        "survos/tui-extras-bundle": "^2.10",
+        "symfony/tui": "^8.1"
+    },
+    "suggest": {
+        "survos/tui-extras-bundle": "For 'survos:crawl --tui', a live dashboard instead of scrolling console output"
     },
     "autoload": {
         "psr-4": {
