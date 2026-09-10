@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Survos\CrawlerBundle\Services;
 
 use Doctrine\ORM\EntityManagerInterface;
@@ -146,7 +148,7 @@ class CrawlerService
         if (! array_key_exists($path, $this->linkList[$username])) {
             $depth = 0;
             if(isset($this->linkList[$username][$foundOn])) {
-                $depth = $this->linkList[$username][$foundOn]->getDepth() + 1;
+                $depth = $this->linkList[$username][$foundOn]->depth + 1;
             }
             $this->linkList[$username][$path] = new Link(username: $username, path: $path,route: $route, foundOn: $foundOn, depth: $depth);
         }
@@ -184,7 +186,7 @@ class CrawlerService
 
     public function getPendingLinks(?string $username): array
     {
-        return array_filter($this->getLinkList($username), fn (Link $link) => $link->isPending());
+        return array_filter($this->getLinkList($username), fn (Link $link) => $link->pending);
     }
 
     public function         getUnvisitedLink(?string $username): ?Link
@@ -226,10 +228,10 @@ class CrawlerService
     public function scrape(Link $link, int $depth = 0): ?Link
     {
 
-        //        $this->logger->info("Scraping " . $link->getPath());
-        $link->setSeen(true);
+        //        $this->logger->info("Scraping " . $link->path);
+        $link->seen = true;
 
-        if ($link->getDepth() > $this->maxDepth) {
+        if ($link->depth > $this->maxDepth) {
             return null;
         }
 
@@ -238,59 +240,59 @@ class CrawlerService
         }
         // check for paths before finding the route
         foreach ($this->pathsToIgnore as $pathPattern) {
-            if (preg_match('#'.$pathPattern.'#', $link->getPath())) {
-                $link->setLinkStatus($link::STATUS_IGNORED);
+            if (preg_match('#'.$pathPattern.'#', $link->path)) {
+                $link->linkStatus = $link::STATUS_IGNORED;
                 return $link;
             }
         }
 
-        if  ($link->getVisits() >= $this->maxVisits) {
-            $link->setLinkStatus($link::STATUS_ALREADY_VISITED);
+        if  ($link->visits >= $this->maxVisits) {
+            $link->linkStatus = $link::STATUS_ALREADY_VISITED;
             return $link;
         }
 
         // e.g. sais.wip/test-webhook
-        if (str_starts_with($link->getPath(), 'http')) {
-            $link->setLinkStatus($link::STATUS_IGNORED);
+        if (str_starts_with($link->path, 'http')) {
+            $link->linkStatus = $link::STATUS_IGNORED;
             return $link;
         }
 
-        if (!$link->getRoute()) {
+        if (!$link->route) {
             $this->setRoute($link);
         }
 
-        if (!$link->getRoute()) {
-            $link->setLinkStatus($link::STATUS_IGNORED);
+        if (!$link->route) {
+            $link->linkStatus = $link::STATUS_IGNORED;
             return $link;
         }
-        assert($link->getRoute(), "missing route  in path " . $link->getPath());
+        assert($link->route, "missing route  in path " . $link->path);
 
-        $routeName = $link->getRoute();
+        $routeName = $link->route;
         if (!array_key_exists($routeName, $this->routeVisits)) {
             $this->routeVisits[$routeName] = 0;
         }
 
         if  ($this->routeVisits[$routeName] > $this->maxVisits) {
-            $link->setLinkStatus($link::STATUS_ALREADY_VISITED);
+            $link->linkStatus = $link::STATUS_ALREADY_VISITED;
             return $link;
         }
         $this->routeVisits[$routeName]++;
 
-        if ($this->isIgnoredPath($link->getPath())) {
-            $link->setLinkStatus($link::STATUS_IGNORED);
+        if ($this->isIgnoredPath($link->path)) {
+            $link->linkStatus = $link::STATUS_IGNORED;
             return $link;
         }
-        if ($this->isIgnoredRoute($link->getRoute())) {
-            $link->setLinkStatus($link::STATUS_IGNORED);
+        if ($this->isIgnoredRoute($link->route)) {
+            $link->linkStatus = $link::STATUS_IGNORED;
             return $link;
         }
 
-        if ($link->getLinkStatus() === $link::STATUS_IGNORED) {
+        if ($link->linkStatus === $link::STATUS_IGNORED) {
             return $link;
         }
 
         // ugh, sloppy
-        $url = trim($this->baseUrl, '/') . '/' . trim($link->getPath(), '/');
+        $url = trim($this->baseUrl, '/') . '/' . trim($link->path, '/');
 
         assert(is_string($url));
         assert(parse_url($url), "Invalid url: " . $url);
@@ -302,15 +304,13 @@ class CrawlerService
         $startTime = floor(microtime(true) * 1000);
         $crawlerClient->request('GET', $url);
         $endTime = floor(microtime(true) * 1000);
-        $link->setDuration($endTime - $startTime);
+        $link->duration = $endTime - $startTime;
         $response = $crawlerClient->getResponse();
 
         //        dd($response->getStatusCode(), $request, $this->goutteClient);
         $status = $response->getStatusCode();
-        //$link->setMemory();
-        $link
-//            ->setDuration($response->getInfo('total_time'))
-            ->setStatusCode($status);
+        //$link->recordMemory();
+        $link->statusCode = $status;
 
         if ($status == 302) {
             die('we should be following redirects, option in the request method?...');
@@ -321,7 +321,7 @@ class CrawlerService
             // Keep the raw response (in dev, this is Symfony's full debug/exception
             // page) on the link so callers can surface the real error instead of
             // just crawl bookkeeping — see CrawlCommand's fatal-error report.
-            $link->setHtml($html);
+            $link->html = $html;
         }
         // hmm, how should 301's be tracked?
 
@@ -331,8 +331,8 @@ class CrawlerService
         // (500, handled separately below) aren't buried in expected noise.
         if (!in_array($status, [200, 302, 301, 500])) {
             $msg = ($link->username ? $link->username . '@' : '') . $this->baseUrl .
-                trim($link->getPath(), '/') . ' ' .
-                $link->getRoute() . ' returned ' . $status . ' found on '
+                trim($link->path, '/') . ' ' .
+                $link->route . ' returned ' . $status . ' found on '
                 . $link->foundOn;
             $this->logger->info($msg);
         }
@@ -341,11 +341,11 @@ class CrawlerService
             $errorReport = [
                 'status' => 500,
                 'url' => $url,
-                'route' => $link->getRoute(),
-                'path' => $link->getPath(),
+                'route' => $link->route,
+                'path' => $link->path,
                 'user' => $link->username ?: 'visitor',
-                'found_on' => $link->getFoundOn(),
-                'duration' => $link->getDuration() . 'ms',
+                'found_on' => $link->foundOn,
+                'duration' => $link->duration . 'ms',
                 'timestamp' => date('Y-m-d H:i:s')
             ];
             
@@ -353,7 +353,7 @@ class CrawlerService
             $this->logger->critical('500 Internal Server Error detected:', $errorReport);
             
             // Set link status to indicate critical error
-            $link->setLinkStatus('500_error');
+            $link->linkStatus = '500_error';
             
             // Return the link with error info so calling code can decide whether to break
             return $link;
@@ -408,8 +408,8 @@ class CrawlerService
                         return null;
                     }
                 }
-                $pageLink = $this->addLink($link->username, $cleanHref, foundOn: $link->getPath());
-                //$pageLink->setDepth($depth + 1);
+                $pageLink = $this->addLink($link->username, $cleanHref, foundOn: $link->path);
+                //$pageLink->depth = $depth + 1;
             }
         );
         return $link;
@@ -438,7 +438,7 @@ class CrawlerService
 
     public function setRoute(Link $link): void
     {
-        $path = $link->getPath();
+        $path = $link->path;
         if (!$path) {
             return;
         }
@@ -472,7 +472,7 @@ class CrawlerService
 //            }
             if ($routeName) {
                 $route = $this->router->getRouteCollection()->get($routeName);
-                $link->setRoute($routeName);
+                $link->route = $routeName;
                 $link->incVisits();
  //                $controller = $route['_controller'];
                 //                $reflection = new \ReflectionMethod($controller);
@@ -483,8 +483,8 @@ class CrawlerService
         try {
         } catch (ResourceNotFoundException $exception) {
             // @todo: check for /public
-            $link
-                ->setLinkStatus(Link::STATUS_IGNORED);
+            $link->linkStatus = Link::STATUS_IGNORED;
+
             return;
         }
         assert($path, "missing path");

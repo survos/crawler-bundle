@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Survos\CrawlerBundle\Command;
 
 use Nette\PhpGenerator\PhpNamespace;

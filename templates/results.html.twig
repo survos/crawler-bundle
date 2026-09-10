@@ -68,48 +68,89 @@
 {% endblock %}
 {% block body %}
 
-    {# if picocss, not tabler... #}
-{#    <nav>#}
-{#        <ul>#}
-{#            <li><strong>Acme Corp</strong></li>#}
-{#        </ul>#}
-{#        <ul>#}
-{#            <li><a href="#">{{ u|default('#u') }}</a></li>#}
-{#            <li><a href="#">Services</a></li>#}
-{#            <li><a href="#">Products</a></li>#}
-{#        </ul>#}
-{#    </nav>#}
-    {% set columns = [
-        'path',
-        'route',
-        'depth'
-    ] %}su
-    <twig:simple_datatables :data="tableData" :columns="tableData[0]|keys">
+    <div class="d-flex align-items-baseline justify-content-between mb-3">
+        <h2 class="mb-0">Crawl results</h2>
+        <div class="text-secondary">
+            Last crawl: <strong>{{ lastCrawl|date('Y-m-d H:i') }}</strong>
+            &middot; {{ routeStats|length }} routes
+            &middot; {{ tableData|length }} links
+        </div>
+    </div>
 
+    <div class="card mb-4">
+        <div class="card-header">
+            <h3 class="card-title">Routes crawled</h3>
+            <div class="card-actions text-secondary">slowest first</div>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm table-vcenter card-table">
+                <thead>
+                <tr>
+                    <th>Route</th>
+                    <th class="text-end">Frequency</th>
+                    <th class="text-end">URLs</th>
+                    <th class="text-end">Avg</th>
+                    <th class="text-end">Max</th>
+                    <th>Status</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for stat in routeStats %}
+                    <tr>
+                        <td>{{ stat.route }}</td>
+                        <td class="text-end">{{ stat.visits }}</td>
+                        <td class="text-end">{{ stat.paths }}</td>
+                        <td class="text-end">
+                            {{ stat.avgDuration is null ? '--' : stat.avgDuration|round ~ ' ms' }}
+                        </td>
+                        <td class="text-end text-secondary">
+                            {{ stat.maxDuration is null ? '--' : stat.maxDuration|round ~ ' ms' }}
+                        </td>
+                        <td>
+                            {% for status in stat.statuses %}
+                                <span class="badge bg-{{ status >= 500 ? 'danger' : (status >= 400 ? 'warning' : 'success') }}">{{ status }}</span>
+                            {% endfor %}
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
 
-    </twig:simple_datatables>
-
-
-    <div class="dtsp-verticalContainer row">
-        <div class="dtsp-verticalPanes col-3"></div>
-        <div class="container col-9">
-            {# if we have grid bundle installed, this would be very easy.  But we don't want to require it. we could put the table utility in core, though #}
-            <table id="crawler-table">
+    {# The old markup here called <twig:simple_datatables>, a component that does not exist,
+       and leaned on searchPanes JS in a block named "XXjavascripts" -- which never renders.
+       Both were unreachable until the %kernel.environment typo above was fixed, so this is a
+       plain table instead. #}
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Links</h3>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm table-vcenter card-table" id="crawler-table">
                 <thead>
                 <tr>
                     <th>User</th>
                     <th>URL</th>
                     <th>Found On</th>
-                    <th>route</th>
+                    <th>Route</th>
+                    <th class="text-end">Time</th>
+                    <th>Status</th>
                 </tr>
                 </thead>
                 <tbody>
                 {% for d in tableData %}
                     <tr>
-                        <td>{{ d.user }}</td>
-                        <td data-search="{{ d.path }}"><a href="{{ d.path }}">{{ d.path }}</a></td>
-                        <td><a href="{{ d.foundOn }}">{{ d.foundOn }}</a></td>
+                        <td class="text-secondary">{{ d.user|split('|')|first|default('visitor') }}</td>
+                        <td><a href="{{ d.path }}">{{ d.path }}</a></td>
+                        <td class="text-secondary">{{ d.foundOn }}</td>
                         <td>{{ d.route }}</td>
+                        <td class="text-end">{{ d.duration is defined and d.duration is not null ? d.duration|round ~ ' ms' : '--' }}</td>
+                        <td>
+                            {% if d.statusCode %}
+                                <span class="badge bg-{{ d.statusCode >= 500 ? 'danger' : (d.statusCode >= 400 ? 'warning' : 'success') }}">{{ d.statusCode }}</span>
+                            {% endif %}
+                        </td>
                     </tr>
                 {% endfor %}
                 </tbody>

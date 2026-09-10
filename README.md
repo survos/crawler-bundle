@@ -1,156 +1,94 @@
 # CrawlerBundle
 
-One of the most basic ways to test a website is to simply go to the starting page and click on every link to make sure there are no pages broken.
+The simplest useful test of a website: start at the homepage, follow every link, and check
+that nothing is broken. Then do it again as each of your users — because the interesting
+bugs are the ones where an `/admin` link is visible to someone who gets a 403 when they
+click it, or where a route quietly starts 500'ing after a refactor.
 
-Then repeat the process, but logged in as different users (e.g. as an administrator).
-
-That's what this bundle does.  Combine with code coverage, it's a fast and easy way to test.  This can also be run in --dev
-
-@todo: check out https://github.com/mvdbos/php-spider
+The crawl is slow. So it runs once and records what it saw; a generator turns that
+recording into ordinary PHPUnit tests that run in seconds and can go in CI.
 
 ```bash
 composer req survos/crawler-bundle
-# configure the users in packages/survos_crawler.yaml
-bin/console survos:crawl
 ```
 
-These are the steps
-
-* Crawl the site and create a list of all the routes and paths visited by each user (slow)
-* Generate a phpunit test with those routes
-* Run the phpunit test (very fast)
-* Check coverage with the test.
+## The two commands
 
 ```bash
-c d:sc:update --env=test --force
-
-
-bin/console survos:crawl --env=test
+bin/console survos:crawl              # crawl, record to tests/crawldata.json
+bin/console survos:make:crawl-tests   # generate tests/Crawl/CrawlAs*Test.php from that recording
 ```
 
+That order matters — the generator reads the recording, so a crawl always comes first.
+Re-run both when you add or change routes, and commit `tests/crawldata.json` with the
+change: it is the baseline the tests assert against.
 
-# Working example (without API Platform)
+`survos:crawl` **stops at the first 500** and prints the exception, the URL, the route, and
+the page it was found on. That makes it the fastest way to find drift in an app nobody has
+run in a while.
 
-```bash
-symfony new smoketest-demo --webapp && cd smoketest-demo
-composer config extra.symfony.allow-contrib true
-composer require --dev orm-fixtures pierstoval/smoke-testing 
-echo "DATABASE_URL=sqlite:///%kernel.project_dir%/var/data.db" > .env.local
-echo "DATABASE_URL=sqlite:///%kernel.project_dir%/var/data.db" > .env.test
-echo "title,string,80,no," | sed "s/,/\n/g"  | bin/console make:entity Product
-echo "description,text,yes," | sed "s/,/\n/g"  | bin/console make:entity Product
-bin/console doctrine:schema:update --force --complete
+The generated tests extend `Survos\CrawlerBundle\Tests\BaseVisitLinksTest` (which lives in
+this bundle — nothing is written into your `tests/` directory except the generated classes
+and the recording). Each link becomes one `#[TestWith]` row asserting the status the crawl
+actually observed, so a route that returns 403 for a regular user keeps returning 403.
 
-echo ",," | sed "s/,/\n/g"  | bin/console make:crud Product --with-tests 
+## Configuration
 
-sed -i "s|'app_app'|'app_homepage'|" src/Controller/ProductController.php --with-tests
-
-
-bin/console make:controller AppController
-sed -i "s|Route('/app'|Route('/'|" src/Controller/AppController.php
-sed -i "s|'app_app'|'app_homepage'|" src/Controller/AppController.php
-sed -i "s|</php>|<server name=\"SMOKE_TESTING_ROUTES_METHODS\" value=\"off\" />\n</php>|" phpunit.xml.dist
-
-cat > templates/app/index.html.twig <<END
-{% extends 'base.html.twig' %}
-{% block body %}
-    <h1>A simple CRUD</h1>
-    <a href="{{ path('app_product_index') }}">Listing</a>
-{% endblock %}
-END
-
-cat > src/DataFixtures/AppFixtures.php <<'END'
-<?php
-
-namespace App\DataFixtures;
-
-use App\Entity\Product;
-use Doctrine\Bundle\FixturesBundle\Fixture;
-use Doctrine\Persistence\ObjectManager;
-
-class AppFixtures extends Fixture
-{
-    public function load(ObjectManager $manager): void
-    {
-        $url = 'https://dummyjson.com/products';
-        $json = file_get_contents($url);
-        foreach (json_decode($json)->products as $record) {
-           $product = (new Product)
-              ->setTitle($record->title)
-              ->setDescription($record->description)
-              ;
-            $manager->persist($product);
-        }
-    $manager->flush();
-    }
-}
-END
-
-# setup the test
-
-cat > tests/SmokeTest.php <<'END'
-<?php
-
-namespace App\Tests;
-
-use Pierstoval\SmokeTesting\SmokeTestStaticRoutes;
-
-class SmokeTest extends SmokeTestStaticRoutes
-{
-    // That's all!
-}
-END
-
-bin/console d:fixtures:load -n
-symfony server:start -d
-symfony open:local
-
-composer require stenope/stenope
-bin/console -e prod cache:clear
-bin/console -e prod stenope:build ./public/static/ --base-url=/static
-
-```
-
-Start the server.  Until proxy is working (@todo) you need to use the IP address of the server if you're using the Symfony CLI.
-
-To set default values (@todo: install recipe)
 ```yaml
 # config/packages/survos_crawler.yaml
 survos_crawler:
-  base_url: 'https://127.0.0.1:8000'
+    base_url: 'https://127.0.0.1:8000'   # must be reachable; the crawler makes real requests
+    user_class: App\Entity\User          # ← check this one, see below
+    login_path: /login
+    plaintext_password: 'password'       # the shared dev password for every user below
+    users:
+        - user@example.com
+    initial_path: '/'
+    max_depth: 1                         # how far to follow links from the starting page
+    max_per_route: 3                     # stop after N URLs matching the same route
+    paths_to_ignore: ['/^_profiler/']
+    routes_to_ignore: ['app_logout']
 ```
 
-## The process
+**`user_class` defaults to `App\Entity\User`.** If your user entity lives anywhere else the
+crawl cannot log anyone in, and you get a visitor-only crawl that looks like it worked.
+
+`routes_to_ignore` matches either a route *name* (`app_logout`) or a *path* fragment
+(`ost/subtitle/import`). Use it for routes that are not real link targets — a JSON endpoint
+that requires a query parameter, say — and not to paper over a route that is genuinely
+broken. All users share `plaintext_password`; login goes through the internal Symfony
+browser, so no real password is involved.
+
+Route registration follows the usual kit convention: the results page is mounted at
+`/crawler`, controlled by `routes_enabled` and `route_prefix`.
+
+## Results page
+
+`/crawler/crawlerdata` shows the last crawl: when it ran, and a per-route table of
+frequency, distinct URLs, average and max response time, and the status codes seen — sorted
+slowest first. Below that is every link, with the page it was found on.
+
+When `survos/tabler-bundle` is installed the page is linked from the admin navbar under
+**Crawler → Crawl Results**. Both the route and the menu entry are **dev-only**.
+
+## Useful options
 
 ```bash
-bin/console survos:crawl
+bin/console survos:crawl /my --skip-smoke-routes     # only links discovered by following <a>, no route seeding
+bin/console survos:crawl --username=ana@example.com  # one configured user (repeatable)
+bin/console survos:crawl --complete                  # include API/webhook/non-GET routes too
+bin/console survos:crawl --tui                       # live dashboard instead of scrolling output
+bin/console survos:crawl --limit=50                  # stop after N links
 ```
 
-To crawl only links visible from the rendered pages, skip the generated `@smoke` route seed:
+By default the crawl seeds itself from every registered GET route that looks navigable
+(`@smoke`) and then follows the links it finds. API Platform routes, webhooks and non-GET
+routes are skipped unless you pass `--complete`.
 
-```bash
-bin/console survos:crawl /my --skip-smoke-routes
-```
+## Notes
 
-By default, the command crawls the visitor plus every username configured in `survos_crawler.users`. To crawl only one configured user, pass `--username`; the username must already be in the configured list. No password is needed for the internal Symfony browser login.
-
-```bash
-bin/console survos:crawl /my --skip-smoke-routes --username=ana@scanstation.ai
-```
-
-Note that the first time this runs, it will create a BaseVisitLinksTest.php in the tests directory, so that phpunit works.  
-
-The command visits every link and stores the results in crawldata.json. This is then used by the tests to make sure they're right.
-
-This is particularly good when different users have permissions to different routes, so if you've secured an /admin route and accidentally left the link open, you'll get an error.
-
-
-
-
-
-```bash
-
-symfony new --demo crawler_bundle_demo
-
-
-```
+- The recording lands in `tests/crawldata.json`, and the results page reads it from there.
+- A generated suite that runs in ~0.01s with one assertion per test is asserting nothing —
+  check that the tests are really being executed rather than skipped by a `#[RequiresPhpunit]`
+  gate or an early `return`.
+- @todo: compare with https://github.com/mvdbos/php-spider

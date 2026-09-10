@@ -166,12 +166,12 @@ class CrawlCommand
 
                 if (!$dashboard) {
                     $io->writeln(sprintf(" %s/%d %s%s as %s (from %s)",
-                        $link->getRoute(),
-                        $link->getVisits(),
+                        $link->route,
+                        $link->visits,
                         $crawlerService->getBaseUrl(true),
-                        $link->getPath(),
+                        $link->path,
                         $currentUser ?: 'visitor',
-                        $link->getFoundOn()
+                        $link->foundOn
                     ));
                 }
 
@@ -184,38 +184,38 @@ class CrawlCommand
                 // on a link actually found by rendering a page (or the initial page itself)
                 // means a real, clickable link on the site is broken, which is exactly what
                 // this crawl exists to catch. 500s are always fatal regardless of source.
-                $isExposedLink = '@smoke' !== $link->getFoundOn();
-                $isFatal = 500 === $link->getStatusCode() || (404 === $link->getStatusCode() && $isExposedLink);
+                $isExposedLink = '@smoke' !== $link->foundOn;
+                $isFatal = 500 === $link->statusCode || (404 === $link->statusCode && $isExposedLink);
 
                 if ($isFatal) {
                     $dashboard?->stop();
-                    $fullUrl = rtrim($crawlerService->getBaseUrl(), '/') . '/' . ltrim($link->getPath(), '/');
-                    $statusLabel = 500 === $link->getStatusCode() ? '500 INTERNAL SERVER ERROR' : '404 NOT FOUND (broken link)';
-                    $errorExcerpt = $this->extractErrorExcerpt($link->getHtml() ?? '');
+                    $fullUrl = rtrim($crawlerService->getBaseUrl(), '/') . '/' . ltrim($link->path, '/');
+                    $statusLabel = 500 === $link->statusCode ? '500 INTERNAL SERVER ERROR' : '404 NOT FOUND (broken link)';
+                    $errorExcerpt = $this->extractErrorExcerpt($link->html ?? '');
                     $io->error(array_filter([
                         "🚨 $statusLabel DETECTED 🚨",
                         '',
                         '📍 URL: ' . $fullUrl,
-                        '🔗 Route: ' . ($link->getRoute() ?: 'unknown'),
+                        '🔗 Route: ' . ($link->route ?: 'unknown'),
                         '👤 User: ' . ($link->username ?: 'visitor'),
-                        '📍 Found on: ' . ($link->getFoundOn() ?: 'unknown'),
-                        '⏱️  Duration: ' . ($link->getDuration() ? $link->getDuration() . 'ms' : 'unknown'),
+                        '📍 Found on: ' . ($link->foundOn ?: 'unknown'),
+                        '⏱️  Duration: ' . ($link->duration ? $link->duration . 'ms' : 'unknown'),
                         $errorExcerpt ? '' : null,
                         $errorExcerpt ? '💥 ' . $errorExcerpt : null,
                         '',
                         '🔗 Direct link to test: ' . $fullUrl,
                         ''
                     ], static fn ($line) => null !== $line));
-                    $io->warning(sprintf('Crawler stopped due to a %s error. Fix the issue above before continuing.', $link->getStatusCode()));
+                    $io->warning(sprintf('Crawler stopped due to a %s error. Fix the issue above before continuing.', $link->statusCode));
                     return Command::FAILURE;
                 }
 
-                if ($link->getStatusCode() <> 200 && !$dashboard) {
+                if ($link->statusCode <> 200 && !$dashboard) {
                     $this->logger->warning(sprintf("%s %s (%s)",
-                        $link->getPath(), $link->getRoute(), $link->getStatusCode()));
+                        $link->path, $link->route, $link->statusCode));
                 }
-                if (!$link->testable() && !$dashboard) {
-                    $io->writeln(" Rejecting " . $link->getPath() . ' ' . $link->getRoute());
+                if (!$link->testable && !$dashboard) {
+                    $io->writeln(" Rejecting " . $link->path . ' ' . $link->route);
                 }
                 if ($limit && ($loop > $limit)) {
                     break;
@@ -223,7 +223,7 @@ class CrawlCommand
             }
 
             $key = $currentUser . "|" . $crawlerService->getBaseUrl();
-            $linksToCrawl[$key] = array_filter($crawlerService->getLinkList($currentUser), fn(Link $link) => $link->testable());
+            $linksToCrawl[$key] = array_filter($crawlerService->getLinkList($currentUser), fn(Link $link) => $link->testable);
             $table->addRow([$currentUser, count($linksToCrawl[$key]), count($crawlerService->getLinkList($currentUser))]);
             $dashboard?->finishUser($currentUser ?: 'visitor', count($linksToCrawl[$key]));
             if (!$dashboard) {
@@ -417,10 +417,10 @@ final class CrawlDashboard
 
     public function recordVisit(string $username, Link $link, int $loop, array $routeVisits): void
     {
-        $route = $link->getRoute() ?: '(no route)';
+        $route = $link->route ?: '(no route)';
         $this->routeStats[$username][$route] = [
             'visits' => $routeVisits[$route] ?? ($this->routeStats[$username][$route]['visits'] ?? 0),
-            'status' => $link->getStatusCode(),
+            'status' => $link->statusCode,
         ];
 
         $elapsed = microtime(true) - $this->startedAt;
@@ -429,13 +429,13 @@ final class CrawlDashboard
             $username,
             $loop,
             $elapsed,
-            $link->getRoute() ?: '-',
-            $link->getPath(),
-            $link->getStatusCode() ?? '-',
+            $link->route ?: '-',
+            $link->path,
+            $link->statusCode ?? '-',
         ));
 
         // Bad statuses always force a redraw so they're never missed between throttled frames.
-        $isNotable = $link->getStatusCode() && $link->getStatusCode() >= 400;
+        $isNotable = $link->statusCode && $link->statusCode >= 400;
         $this->render($username, force: $isNotable);
     }
 

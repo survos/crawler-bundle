@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Survos\CrawlerBundle\Services;
 
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;

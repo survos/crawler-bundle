@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Survos\CrawlerBundle\Tests;
 
 use App\Entity\User;
@@ -87,11 +89,10 @@ class BaseVisitLinksTest extends WebTestCase
 
 //            $client->loginUser($user);
         }
-        $content = $browser->visit($url)
-
-//        ->crawler() // Symfony\Component\DomCrawler\Crawler instance for the current response
-            ->content() // string - raw response body
-        ;
+        // Do NOT read ->content() before asserting the status: zenstruck/browser rethrows the
+        // kernel exception there, so every route that legitimately returns 403 (or any other
+        // error the crawl recorded) failed as an exception instead of being asserted.
+        $browser->visit($url);
 //        dd($content);
 //        dump($content);
 //        dd($browser);

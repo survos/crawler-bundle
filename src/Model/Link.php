@@ -1,190 +1,94 @@
 <?php
 
+declare(strict_types=1);
 
 namespace Survos\CrawlerBundle\Model;
 
-use App\Entity\User;
-use Doctrine\Persistence\ManagerRegistry;
-use Symfony\Bundle\FrameworkBundle\KernelBrowser;
-use Symfony\Component\Routing\Exception\ResourceNotFoundException;
-use function Symfony\Component\String\u;
-
-class Link
+/**
+ * One URL seen by the crawler, for one user.
+ *
+ * A plain data holder: every field is public, and jsonSerialize() decides what reaches
+ * tests/crawldata.json. That split matters. The shape of that file used to be an accident
+ * of property visibility, which is how $duration and $visits came to be measured on every
+ * request and then silently dropped for being private. Add a field to the payload
+ * deliberately, by naming it below -- not by changing a keyword.
+ */
+class Link implements \JsonSerializable
 {
     public const STATUS_IGNORED = 'ignored';
     public const STATUS_ALREADY_VISITED = 'already_visited';
 
     public function __construct(
         public string $path,
-        public $seen = false,
+        public bool $seen = false,
         public int $depth = 0,
         public ?string $linkStatus = null,
         public ?string $username = null,
         public ?string $route = null,
+        /** @var array<string,mixed>|null Route parameters. */
         public ?array $rp = null,
-        private ?string $html = null,
-        private ?float $duration = null,
+        /** The whole response body. Kept out of jsonSerialize() -- it would dwarf the file. */
+        public ?string $html = null,
+        /** Milliseconds: CrawlerService measures with microtime(true) * 1000. */
+        public ?float $duration = null,
         public ?int $statusCode = null,
         public ?string $foundOn = null,
+        /** Memory in use at the time of the request, in MB. */
         public ?int $memory = null,
-        private int $visits = 0
+        public int $visits = 0,
     ) {
     }
 
-    public function getMemory(): ?int
-    {
-        return $this->memory;
+    /** Queued, but not yet crawled. */
+    public bool $pending {
+        get => !$this->seen;
     }
 
-    public function incVisits(): self
+    /**
+     * Crawled, and not skipped for being ignored or already visited -- so it is a real
+     * result, worth asserting in a generated test.
+     */
+    public bool $testable {
+        get => $this->seen
+            && !in_array($this->linkStatus, [self::STATUS_IGNORED, self::STATUS_ALREADY_VISITED], true);
+    }
+
+    public function incVisits(): static
     {
-        $this->visits++;
+        ++$this->visits;
+
         return $this;
     }
 
-    public function getVisits(): int
+    public function recordMemory(): static
     {
-        return $this->visits;
-    }
+        $this->memory = (int) round(memory_get_usage() / 1048576, 2);
 
-    public function setMemory(): Link
-    {
-        $this->memory = (int)round(memory_get_usage()/1048576,2);
         return $this;
     }
 
-    public function getLinkStatus(): ?string
+    /**
+     * The crawldata.json payload, listed explicitly so the file's shape is a decision
+     * rather than a side effect. $html is far too large for it, and $pending / $testable
+     * are derived -- cheaper to re-derive on read than to store.
+     *
+     * @return array<string,mixed>
+     */
+    public function jsonSerialize(): array
     {
-        return $this->linkStatus;
-    }
-
-
-    public function setLinkStatus(?string $linkStatus): Link
-    {
-        $this->linkStatus = $linkStatus;
-        return $this;
-    }
-
-
-    public function getRoute(): ?string
-    {
-        return $this->route;
-    }
-
-
-    public function setRoute(?string $route): Link
-    {
-        $this->route = $route;
-        return $this;
-    }
-
-
-    public function getRp(): ?array
-    {
-        return $this->rp;
-    }
-
-
-    public function setRp(?array $rp): Link
-    {
-        $this->rp = $rp;
-        return $this;
-    }
-
-
-    public function getHtml(): ?string
-    {
-        return $this->html;
-    }
-
-
-    public function setHtml(?string $html): Link
-    {
-        $this->html = $html;
-        return $this;
-    }
-
-
-    public function getDepth(): int
-    {
-        return $this->depth;
-    }
-
-
-    public function setDepth(int $depth): Link
-    {
-        $this->depth = $depth;
-        return $this;
-    }
-
-
-    public function getDuration(): ?float
-    {
-        return $this->duration;
-    }
-
-
-    public function setDuration(?float $duration): Link
-    {
-        $this->duration = $duration;
-        return $this;
-    }
-
-
-    public function getStatusCode(): ?int
-    {
-        return $this->statusCode;
-    }
-
-
-    public function setStatusCode(?int $statusCode): Link
-    {
-        $this->statusCode = $statusCode;
-        return $this;
-    }
-
-
-    public function getFoundOn(): ?string
-    {
-        return $this->foundOn;
-    }
-
-
-    public function setFoundOn(?string $foundOn): Link
-    {
-        $this->foundOn = $foundOn;
-        return $this;
-    }
-
-    public function getPath(): string
-    {
-        return $this->path;
-    }
-
-    public function setPath(string $path): self
-    {
-        $this->path = $path;
-        return $this;
-    }
-
-    public function getSeen(): bool
-    {
-        return $this->seen;
-    }
-
-    public function setSeen(bool $seen): self
-    {
-        $this->seen = $seen;
-        return $this;
-    }
-
-    public function isPending(): bool
-    {
-        return ! $this->getSeen();
-    }
-
-    public function testable(): bool
-    {
-        return $this->getSeen() && !in_array($this->getLinkStatus(), [self::STATUS_IGNORED, self::STATUS_ALREADY_VISITED]);
+        return [
+            'path' => $this->path,
+            'seen' => $this->seen,
+            'depth' => $this->depth,
+            'linkStatus' => $this->linkStatus,
+            'username' => $this->username,
+            'route' => $this->route,
+            'rp' => $this->rp,
+            'duration' => $this->duration,
+            'statusCode' => $this->statusCode,
+            'foundOn' => $this->foundOn,
+            'memory' => $this->memory,
+            'visits' => $this->visits,
+        ];
     }
 }

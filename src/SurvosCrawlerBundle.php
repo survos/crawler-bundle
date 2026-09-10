@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Survos\CrawlerBundle;
 
 use Survos\Kit\Traits\HasConfigurableRoutes;
@@ -7,6 +9,7 @@ use Survos\CrawlerBundle\Command\CrawlCommand;
 use Survos\CrawlerBundle\Command\GenerateTestsCommand;
 // use Survos\CrawlerBundle\Command\MakeSmokeTestCommand;
 use Survos\CrawlerBundle\Controller\CrawlerController;
+use Survos\CrawlerBundle\Menu\CrawlerBundleMenuSubscriber;
 use Survos\CrawlerBundle\Services\CrawlerService;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -44,6 +47,15 @@ class SurvosCrawlerBundle extends AbstractSurvosBundle
 //            ->addTag('controller.service_arguments')
 //            ->setArgument('$bag', new Reference('parameter_bag'))
         ;
+
+        // The admin-navbar link only makes sense when tabler-bundle is installed --
+        // MenuEvent lives there, and this bundle must not hard-require it.
+        if (class_exists(\Survos\TablerBundle\Event\MenuEvent::class)) {
+            $builder->autowire(CrawlerBundleMenuSubscriber::class)
+                ->setAutoconfigured(true)
+                ->setPublic(false)
+                ->setArgument('$env', '%kernel.environment%');
+        }
 
         foreach ([CrawlCommand::class, GenerateTestsCommand::class] as $commandClass) {
             $builder->autowire($commandClass)
