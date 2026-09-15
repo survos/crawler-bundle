@@ -397,6 +397,7 @@ class CrawlerService
                 if (empty($cleanHref)) {
                     return null;
                 }
+                $cleanHref = $this->resolveRelative($cleanHref, $link->path);
                 if (preg_match('/^\/(_profiler|_wdt|css|images|js)\//i', $cleanHref)) {
 //                    echo "====================================";
 //                    dd($cleanHref);
@@ -413,6 +414,23 @@ class CrawlerService
             }
         );
         return $link;
+    }
+
+    /**
+     * Resolve a page-relative href ("?page=2", "edit") against the page it was found on.
+     * Pagination widgets emit query-only links, which otherwise have no path to match.
+     */
+    private function resolveRelative(string $href, ?string $foundOn): string
+    {
+        if ($foundOn === null || $foundOn === '' || str_starts_with($href, '/') || preg_match('#^[a-z][a-z0-9+.-]*:#i', $href)) {
+            return $href;
+        }
+        $basePath = parse_url($foundOn, PHP_URL_PATH) ?: '/';
+        if (str_starts_with($href, '?')) {
+            return $basePath . $href;
+        }
+
+        return rtrim(str_ends_with($basePath, '/') ? $basePath : \dirname($basePath), '/') . '/' . $href;
     }
 
     private function cleanup(string $href): ?string
