@@ -25,7 +25,7 @@
         "symfony/console": "^8.1",
         "symfony/security-bundle": "^8.1",
         "symfony/http-client-contracts": "^3.5",
-        "doctrine/orm": "^3.4|^4.0",
+        "doctrine/orm": "^3.7",
         "symfony/routing": "^8.1",
         "zenstruck/browser": "^1.9",
         "nette/php-generator": "^4.1",
