@@ -4,33 +4,25 @@ declare(strict_types=1);
 
 namespace Survos\CrawlerBundle\Services;
 
-use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\Persistence\ManagerRegistry;
 use Exception;
-use Symfony\Component\Console\Input\ArrayInput;
-use Symfony\Component\HttpFoundation\ChainRequestMatcher;
-use Symfony\Component\HttpFoundation\RequestMatcher;
-use Symfony\Component\HttpFoundation\Session\SessionFactory;
-use Symfony\Component\HttpKernel\KernelInterface;
 use Psr\Log\LoggerInterface;
 use Survos\CrawlerBundle\Model\Link;
-use Symfony\Bundle\FrameworkBundle\KernelBrowser;
+use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\DomCrawler\Crawler;
+use Symfony\Component\HttpFoundation\Session\SessionFactory;
+use Symfony\Component\HttpKernel\KernelInterface;
 use Symfony\Component\HttpKernel\Profiler\Profiler;
 use Symfony\Component\Routing\Exception\MethodNotAllowedException;
 use Symfony\Component\Routing\Exception\ResourceNotFoundException;
 use Symfony\Component\Routing\Matcher\TraceableUrlMatcher;
-use Symfony\Component\Routing\Matcher\UrlMatcher;
 use Symfony\Component\Routing\RouterInterface;
+use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use Symfony\Component\Security\Core\Exception\UserNotFoundException;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
-use Symfony\Component\DependencyInjection\Reference;
-use Symfony\Component\DependencyInjection\ServiceLocator;
+
 use function Symfony\Component\String\u;
-use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
-use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpFoundation\Session\Storage\SessionStorageFactoryInterface;
 
 class CrawlerService
 {
@@ -53,18 +45,17 @@ class CrawlerService
         private KernelInterface $kernel,
         protected Security $security,
         protected SessionFactory $sessionStorageFactory,
-        private ?ManagerRegistry       $managerRegistry=null,
-        private ?TokenStorageInterface $tokenStorage=null,
-        ?Profiler                      $profiler = null,
-        private array                  $linkList = [],
-        private ?string                $username = null,
-        private array                  $users = [],
-        private int                    $maxDepth = 1,
-        private int                    $maxVisits = 3,
-        private array                  $routesToIgnore = [],
-        private array                  $pathsToIgnore = [],
-        private array                  $routeVisits = [],
-
+        private ?ManagerRegistry $managerRegistry = null,
+        private ?TokenStorageInterface $tokenStorage = null,
+        ?Profiler $profiler = null,
+        private array $linkList = [],
+        private ?string $username = null,
+        private array $users = [],
+        private int $maxDepth = 1,
+        private int $maxVisits = 3,
+        private array $routesToIgnore = [],
+        private array $pathsToIgnore = [],
+        private array $routeVisits = [],
     ) {
         //        $this->baseUrl = 'https://127.0.0.1:8001';
         if (null !== $profiler) {
@@ -91,19 +82,19 @@ class CrawlerService
     public function setConfig(array $config): CrawlerService
     {
         $this->config = $config;
+
         return $this;
     }
 
-    public function getBaseUrl($removeTrailingSlash=false): string
+    public function getBaseUrl($removeTrailingSlash = false): string
     {
-        return $removeTrailingSlash ? trim($this->baseUrl, '/') :  $this->baseUrl;
+        return $removeTrailingSlash ? trim($this->baseUrl, '/') : $this->baseUrl;
     }
 
     public function getUserClass(): ?string
     {
         return $this->userClass;
     }
-
 
     public function getInitialPath(): string
     {
@@ -126,9 +117,10 @@ class CrawlerService
         ]);
         if ($username && !$user) {
             $this->logger->error("user $username is not in the database");
-//            dd("user $username is not in the database");
+            //            dd("user $username is not in the database");
             throw new UserNotFoundException();
         }
+
         return $user;
     }
 
@@ -137,22 +129,23 @@ class CrawlerService
         return sprintf('%s@%s', $username, $path);
     }
 
-    public function addLink(?string $username, string $path, ?string $foundOn = null,?string $route = null): Link
+    public function addLink(?string $username, string $path, ?string $foundOn = null, ?string $route = null): Link
     {
         //        $key = $this->linkListKey($username, $path);
         $username ??= '';
 
-        if (! array_key_exists($username, $this->linkList)) {
+        if (!array_key_exists($username, $this->linkList)) {
             $this->linkList[$username] = [];
         }
-        if (! array_key_exists($path, $this->linkList[$username])) {
+        if (!array_key_exists($path, $this->linkList[$username])) {
             $depth = 0;
-            if(isset($this->linkList[$username][$foundOn])) {
+            if (isset($this->linkList[$username][$foundOn])) {
                 $depth = $this->linkList[$username][$foundOn]->depth + 1;
             }
-            $this->linkList[$username][$path] = new Link(username: $username, path: $path,route: $route, foundOn: $foundOn, depth: $depth);
+            $this->linkList[$username][$path] = new Link(username: $username, path: $path, route: $route, foundOn: $foundOn, depth: $depth);
         }
         $link = $this->linkList[$username][$path];
+
         return $link;
     }
 
@@ -189,7 +182,7 @@ class CrawlerService
         return array_filter($this->getLinkList($username), fn (Link $link) => $link->pending);
     }
 
-    public function         getUnvisitedLink(?string $username): ?Link
+    public function getUnvisitedLink(?string $username): ?Link
     {
         return current($this->getPendingLinks($username)) ?: null;
     }
@@ -205,7 +198,7 @@ class CrawlerService
         // might be worth checking out: https://github.com/liip/LiipTestFixturesBundle/pull/62#issuecomment-622191412
         static $clients = [];
         $username = $user->getUserIdentifier();
-        if (! array_key_exists($username, $clients)) {
+        if (!array_key_exists($username, $clients)) {
             $createClient = $this->createClient();
             $createClient->loginUser($user);
             $clients[$username] = $createClient;
@@ -215,19 +208,18 @@ class CrawlerService
 
     public function checkIfCrawlerClient()
     {
-        if(!$this->crawlerClient) {
+        if (!$this->crawlerClient) {
             $this->crawlerClient = $this->createClient();
         }
     }
 
     private function getKey($path): string
     {
-        return sprintf("%s-%s", $this->username, $path);
+        return sprintf('%s-%s', $this->username, $path);
     }
 
     public function scrape(Link $link, int $depth = 0): ?Link
     {
-
         //        $this->logger->info("Scraping " . $link->path);
         $link->seen = true;
 
@@ -242,18 +234,21 @@ class CrawlerService
         foreach ($this->pathsToIgnore as $pathPattern) {
             if (preg_match('#'.$pathPattern.'#', $link->path)) {
                 $link->linkStatus = $link::STATUS_IGNORED;
+
                 return $link;
             }
         }
 
-        if  ($link->visits >= $this->maxVisits) {
+        if ($link->visits >= $this->maxVisits) {
             $link->linkStatus = $link::STATUS_ALREADY_VISITED;
+
             return $link;
         }
 
         // e.g. sais.wip/test-webhook
         if (str_starts_with($link->path, 'http')) {
             $link->linkStatus = $link::STATUS_IGNORED;
+
             return $link;
         }
 
@@ -263,27 +258,31 @@ class CrawlerService
 
         if (!$link->route) {
             $link->linkStatus = $link::STATUS_IGNORED;
+
             return $link;
         }
-        assert($link->route, "missing route  in path " . $link->path);
+        assert($link->route, 'missing route  in path '.$link->path);
 
         $routeName = $link->route;
         if (!array_key_exists($routeName, $this->routeVisits)) {
             $this->routeVisits[$routeName] = 0;
         }
 
-        if  ($this->routeVisits[$routeName] > $this->maxVisits) {
+        if ($this->routeVisits[$routeName] > $this->maxVisits) {
             $link->linkStatus = $link::STATUS_ALREADY_VISITED;
+
             return $link;
         }
-        $this->routeVisits[$routeName]++;
+        ++$this->routeVisits[$routeName];
 
         if ($this->isIgnoredPath($link->path)) {
             $link->linkStatus = $link::STATUS_IGNORED;
+
             return $link;
         }
         if ($this->isIgnoredRoute($link->route)) {
             $link->linkStatus = $link::STATUS_IGNORED;
+
             return $link;
         }
 
@@ -292,14 +291,14 @@ class CrawlerService
         }
 
         // ugh, sloppy
-        $url = trim($this->baseUrl, '/') . '/' . trim($link->path, '/');
+        $url = trim($this->baseUrl, '/').'/'.trim($link->path, '/');
 
         assert(is_string($url));
-        assert(parse_url($url), "Invalid url: " . $url);
+        assert(parse_url($url), 'Invalid url: '.$url);
         //        $response = $this->cache->get(md5($url), function(CacheItem $item) use ($url, $info, $path) {
 
         $crawlerClient = $this->crawlerClient;
-        assert($crawlerClient, "no crawlerClient");
+        assert($crawlerClient, 'no crawlerClient');
         $crawlerClient->followRedirects();
         $startTime = floor(microtime(true) * 1000);
         $crawlerClient->request('GET', $url);
@@ -309,11 +308,11 @@ class CrawlerService
 
         //        dd($response->getStatusCode(), $request, $this->goutteClient);
         $status = $response->getStatusCode();
-        //$link->recordMemory();
+        // $link->recordMemory();
         $link->statusCode = $status;
 
-        if ($status == 302) {
-            die('we should be following redirects, option in the request method?...');
+        if (302 == $status) {
+            exit('we should be following redirects, option in the request method?...');
         }
 
         $html = $response->getContent();
@@ -330,13 +329,13 @@ class CrawlerService
         // its real parameters) — log at info, not error, so real problems
         // (500, handled separately below) aren't buried in expected noise.
         if (!in_array($status, [200, 302, 301, 500])) {
-            $msg = ($link->username ? $link->username . '@' : '') . $this->baseUrl .
-                trim($link->path, '/') . ' ' .
-                $link->route . ' returned ' . $status . ' found on '
-                . $link->foundOn;
+            $msg = ($link->username ? $link->username.'@' : '').$this->baseUrl.
+                trim($link->path, '/').' '.
+                $link->route.' returned '.$status.' found on '
+                .$link->foundOn;
             $this->logger->info($msg);
         }
-        if ($status == 500) {
+        if (500 == $status) {
             // Create detailed 500 error report
             $errorReport = [
                 'status' => 500,
@@ -345,20 +344,19 @@ class CrawlerService
                 'path' => $link->path,
                 'user' => $link->username ?: 'visitor',
                 'found_on' => $link->foundOn,
-                'duration' => $link->duration . 'ms',
-                'timestamp' => date('Y-m-d H:i:s')
+                'duration' => $link->duration.'ms',
+                'timestamp' => date('Y-m-d H:i:s'),
             ];
-            
+
             // Log detailed error information
             $this->logger->critical('500 Internal Server Error detected:', $errorReport);
-            
+
             // Set link status to indicate critical error
             $link->linkStatus = '500_error';
-            
+
             // Return the link with error info so calling code can decide whether to break
             return $link;
         }
-
 
         //        $responseInfo = $response->getInfo();
         //        unset($responseInfo['pause_handler']);
@@ -374,11 +372,11 @@ class CrawlerService
         //        $crawler = new \Symfony\Component\DomCrawler\Crawler()
         // Get the latest post in this category and display the titles
         $crawler->filter(' a')->each(
-            function ($node) use ($link, $depth) {
+            function ($node) use ($link) {
                 $href = (string) $node->attr('href');
-                //ignore node $node if has attribute data-bs-toggle="modal"
-                //ignore data-bs-target="#modal-delete"
-                if ($node->attr('data-bs-toggle') == 'modal' || $node->attr('data-bs-target') == '#modal-delete') {
+                // ignore node $node if has attribute data-bs-toggle="modal"
+                // ignore data-bs-target="#modal-delete"
+                if ('modal' == $node->attr('data-bs-toggle') || '#modal-delete' == $node->attr('data-bs-target')) {
                     return null;
                 }
 
@@ -399,8 +397,8 @@ class CrawlerService
                 }
                 $cleanHref = $this->resolveRelative($cleanHref, $link->path);
                 if (preg_match('/^\/(_profiler|_wdt|css|images|js)\//i', $cleanHref)) {
-//                    echo "====================================";
-//                    dd($cleanHref);
+                    //                    echo "====================================";
+                    //                    dd($cleanHref);
                     return null;
                 }
                 $parts = parse_url($cleanHref);
@@ -410,9 +408,10 @@ class CrawlerService
                     }
                 }
                 $pageLink = $this->addLink($link->username, $cleanHref, foundOn: $link->path);
-                //$pageLink->depth = $depth + 1;
+                // $pageLink->depth = $depth + 1;
             }
         );
+
         return $link;
     }
 
@@ -422,15 +421,15 @@ class CrawlerService
      */
     private function resolveRelative(string $href, ?string $foundOn): string
     {
-        if ($foundOn === null || $foundOn === '' || str_starts_with($href, '/') || preg_match('#^[a-z][a-z0-9+.-]*:#i', $href)) {
+        if (null === $foundOn || '' === $foundOn || str_starts_with($href, '/') || preg_match('#^[a-z][a-z0-9+.-]*:#i', $href)) {
             return $href;
         }
         $basePath = parse_url($foundOn, PHP_URL_PATH) ?: '/';
         if (str_starts_with($href, '?')) {
-            return $basePath . $href;
+            return $basePath.$href;
         }
 
-        return rtrim(str_ends_with($basePath, '/') ? $basePath : \dirname($basePath), '/') . '/' . $href;
+        return rtrim(str_ends_with($basePath, '/') ? $basePath : \dirname($basePath), '/').'/'.$href;
     }
 
     private function cleanup(string $href): ?string
@@ -460,19 +459,20 @@ class CrawlerService
         if (!$path) {
             return;
         }
-            // hack
-            $urlPath = parse_url($path, PHP_URL_PATH);
-            if (!$urlPath) {
-                $this->logger->error("Invalid path: $urlPath from $path");
-                return;
-            }
-                $context = $this->router->getContext();
-                $matcher = new TraceableUrlMatcher($this->router->getRouteCollection(), $context);
-//                foreach ($this->expressionLanguageProviders as $provider) {
-//                    $matcher->addExpressionLanguageProvider($provider);
-//                }
+        // hack
+        $urlPath = parse_url($path, PHP_URL_PATH);
+        if (!$urlPath) {
+            $this->logger->error("Invalid path: $urlPath from $path");
 
-                $traces = $matcher->getTraces($urlPath);
+            return;
+        }
+        $context = $this->router->getContext();
+        $matcher = new TraceableUrlMatcher($this->router->getRouteCollection(), $context);
+        //                foreach ($this->expressionLanguageProviders as $provider) {
+        //                    $matcher->addExpressionLanguageProvider($provider);
+        //                }
+
+        $traces = $matcher->getTraces($urlPath);
         $routeName = null;
         foreach ($traces as $trace) {
             if (TraceableUrlMatcher::ROUTE_MATCHES == $trace['level']) {
@@ -481,23 +481,23 @@ class CrawlerService
             }
         }
 
-//        try {
-//                $route = $this->router->match($urlPath);
-//            } catch (MethodNotAllowedException $exception) {
-//                dd(__METHOD__, __FILE__, __LINE__, $exception, $urlPath);
-//            } catch (\Exception $exception) {
-//                dd($exception, $urlPath);
-//            }
-            if ($routeName) {
-                $route = $this->router->getRouteCollection()->get($routeName);
-                $link->route = $routeName;
-                $link->incVisits();
- //                $controller = $route['_controller'];
-                //                $reflection = new \ReflectionMethod($controller);
-//                foreach (['_route', '_controller'] as $x) {
-//                    unset($route[$x]);
-//                }
-            }
+        //        try {
+        //                $route = $this->router->match($urlPath);
+        //            } catch (MethodNotAllowedException $exception) {
+        //                dd(__METHOD__, __FILE__, __LINE__, $exception, $urlPath);
+        //            } catch (\Exception $exception) {
+        //                dd($exception, $urlPath);
+        //            }
+        if ($routeName) {
+            $route = $this->router->getRouteCollection()->get($routeName);
+            $link->route = $routeName;
+            $link->incVisits();
+            //                $controller = $route['_controller'];
+            //                $reflection = new \ReflectionMethod($controller);
+            //                foreach (['_route', '_controller'] as $x) {
+            //                    unset($route[$x]);
+            //                }
+        }
         try {
         } catch (ResourceNotFoundException $exception) {
             // @todo: check for /public
@@ -505,24 +505,26 @@ class CrawlerService
 
             return;
         }
-        assert($path, "missing path");
+        assert($path, 'missing path');
     }
 
-    private function createClient() {
+    private function createClient()
+    {
         $crawlerClient = new CrawlerClient($this->kernel, $this->tokenStorage, $this->security,
             $this->sessionStorageFactory
         );
+
         return $crawlerClient;
     }
 
     private function isIgnoredPath($path)
     {
         foreach ($this->routesToIgnore as $keyword) {
-            if (trim($path, '/') == "") {
+            if ('' == trim($path, '/')) {
                 return false;
             }
 
-            if (strpos(trim($keyword, '/'), trim($path, '/')) !== false) {
+            if (false !== strpos(trim($keyword, '/'), trim($path, '/'))) {
                 return true;
             }
         }
@@ -535,6 +537,7 @@ class CrawlerService
         if (in_array($route, $this->routesToIgnore)) {
             return true;
         }
+
         return false;
     }
 }

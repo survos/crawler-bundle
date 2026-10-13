@@ -15,6 +15,7 @@ use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+
 use function Symfony\Component\String\u;
 
 #[AsCommand('survos:make:crawl-tests', 'Generate crawler tests for a visitor and authenticated users')]
@@ -29,20 +30,21 @@ final class GenerateTestsCommand
         SymfonyStyle $io,
         #[Argument('Test class dir')] string $testDir = 'Crawl',
     ): int {
-        $testPath = $this->testRoot . $testDir . '/';
+        $testPath = $this->testRoot.$testDir.'/';
         if (!file_exists($testPath)) {
             mkdir($testPath, 0777, true);
         }
         if (!class_exists(PhpNamespace::class)) {
             $io->writeln("Missing dependency:\n\ncomposer req nette/php-generator --dev");
+
             return Command::FAILURE;
         }
-        $fn = $testPath . '/../crawldata.json';
+        $fn = $testPath.'/../crawldata.json';
         assert(file_exists($fn), "$fn is missing, run bin/console survos:crawl first");
         $routes = json_decode(file_get_contents($fn), true);
         foreach ($routes as $key => $links) {
             [$user, $startUrl] = explode('|', $key);
-            $namespace = new PhpNamespace('App\\Tests\\' . $testDir);
+            $namespace = new PhpNamespace('App\\Tests\\'.$testDir);
             foreach ([
                 WebTestCase::class,
                 TestDox::class,
@@ -70,7 +72,7 @@ final class GenerateTestsCommand
                 ]]);
             }
 
-            array_map(fn($param) => $method->addParameter($param)->setType('string'), [
+            array_map(fn ($param) => $method->addParameter($param)->setType('string'), [
                 'username', 'url',
             ]);
             $method->addParameter('expected')->setType('string|int|null');
@@ -80,10 +82,11 @@ final class GenerateTestsCommand
 END
             );
 
-            $filename = $testPath . $className . '.php';
-            file_put_contents($filename, "<?php\n\n" . $namespace);
+            $filename = $testPath.$className.'.php';
+            file_put_contents($filename, "<?php\n\n".$namespace);
             $io->writeln(sprintf('<info>%s</info> written.', $filename));
         }
+
         return Command::SUCCESS;
     }
 }

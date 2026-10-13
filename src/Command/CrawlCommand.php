@@ -64,6 +64,7 @@ class CrawlCommand
                 implode(', ', $unknownUsernames),
                 $configuredUsernames ? implode(', ', $configuredUsernames) : '(none)'
             ));
+
             return Command::FAILURE;
         }
 
@@ -105,7 +106,7 @@ class CrawlCommand
         if (!$skipSmokeRoutes) {
             $routes = RoutesExtractor::extractRoutesFromRouter($this->router);
             foreach ($routes as $route) {
-                if (in_array($route["routeName"], $routesToIgnore)) {
+                if (in_array($route['routeName'], $routesToIgnore)) {
                     continue;
                 }
                 if (!$complete && !$this->isVisibleRoute($route)) {
@@ -135,21 +136,22 @@ class CrawlCommand
                     $crawlerService->authenticateClient($user);
                 }
             } catch (UserNotFoundException $e) {
-                $io->error(sprintf("User %s not found", $currentUser));
+                $io->error(sprintf('User %s not found', $currentUser));
             } catch (\Exception $e) {
                 dd($e->getMessage(), $e->getTraceAsString(), $e->getPrevious());
             }
             if ($currentUser && !$user) {
-                $io->error(sprintf("User %s not found", $currentUser));
+                $io->error(sprintf('User %s not found', $currentUser));
+
                 return Command::FAILURE;
             }
             $this->crawlerService->checkIfCrawlerClient();
             if (!$dashboard) {
-                $io->info(sprintf("Crawling %s as %s", $initialPath, $currentUser ?: 'Visitor'));
+                $io->info(sprintf('Crawling %s as %s', $initialPath, $currentUser ?: 'Visitor'));
             }
 
             foreach ($staticLinks as $route) {
-                $crawlerService->addLink($currentUser, $route["routePath"], foundOn: '@smoke', route: $route["routeName"]);
+                $crawlerService->addLink($currentUser, $route['routePath'], foundOn: '@smoke', route: $route['routeName']);
             }
 
             $link = $crawlerService->addLink($currentUser, $initialPath, foundOn: '@initial');
@@ -159,13 +161,13 @@ class CrawlCommand
 
             $loop = 0;
             while ($link = $crawlerService->getUnvisitedLink($currentUser)) {
-                $loop++;
+                ++$loop;
                 $link->incVisits();
 
                 $crawlerService->setRoute($link);
 
                 if (!$dashboard) {
-                    $io->writeln(sprintf(" %s/%d %s%s as %s (from %s)",
+                    $io->writeln(sprintf(' %s/%d %s%s as %s (from %s)',
                         $link->route,
                         $link->visits,
                         $crawlerService->getBaseUrl(true),
@@ -189,41 +191,42 @@ class CrawlCommand
 
                 if ($isFatal) {
                     $dashboard?->stop();
-                    $fullUrl = rtrim($crawlerService->getBaseUrl(), '/') . '/' . ltrim($link->path, '/');
+                    $fullUrl = rtrim($crawlerService->getBaseUrl(), '/').'/'.ltrim($link->path, '/');
                     $statusLabel = 500 === $link->statusCode ? '500 INTERNAL SERVER ERROR' : '404 NOT FOUND (broken link)';
                     $errorExcerpt = $this->extractErrorExcerpt($link->html ?? '');
                     $io->error(array_filter([
                         "🚨 $statusLabel DETECTED 🚨",
                         '',
-                        '📍 URL: ' . $fullUrl,
-                        '🔗 Route: ' . ($link->route ?: 'unknown'),
-                        '👤 User: ' . ($link->username ?: 'visitor'),
-                        '📍 Found on: ' . ($link->foundOn ?: 'unknown'),
-                        '⏱️  Duration: ' . ($link->duration ? $link->duration . 'ms' : 'unknown'),
+                        '📍 URL: '.$fullUrl,
+                        '🔗 Route: '.($link->route ?: 'unknown'),
+                        '👤 User: '.($link->username ?: 'visitor'),
+                        '📍 Found on: '.($link->foundOn ?: 'unknown'),
+                        '⏱️  Duration: '.($link->duration ? $link->duration.'ms' : 'unknown'),
                         $errorExcerpt ? '' : null,
-                        $errorExcerpt ? '💥 ' . $errorExcerpt : null,
+                        $errorExcerpt ? '💥 '.$errorExcerpt : null,
                         '',
-                        '🔗 Direct link to test: ' . $fullUrl,
-                        ''
+                        '🔗 Direct link to test: '.$fullUrl,
+                        '',
                     ], static fn ($line) => null !== $line));
                     $io->warning(sprintf('Crawler stopped due to a %s error. Fix the issue above before continuing.', $link->statusCode));
+
                     return Command::FAILURE;
                 }
 
-                if ($link->statusCode <> 200 && !$dashboard) {
-                    $this->logger->warning(sprintf("%s %s (%s)",
+                if (200 != $link->statusCode && !$dashboard) {
+                    $this->logger->warning(sprintf('%s %s (%s)',
                         $link->path, $link->route, $link->statusCode));
                 }
                 if (!$link->testable && !$dashboard) {
-                    $io->writeln(" Rejecting " . $link->path . ' ' . $link->route);
+                    $io->writeln(' Rejecting '.$link->path.' '.$link->route);
                 }
                 if ($limit && ($loop > $limit)) {
                     break;
                 }
             }
 
-            $key = $currentUser . "|" . $crawlerService->getBaseUrl();
-            $linksToCrawl[$key] = array_filter($crawlerService->getLinkList($currentUser), fn(Link $link) => $link->testable);
+            $key = $currentUser.'|'.$crawlerService->getBaseUrl();
+            $linksToCrawl[$key] = array_filter($crawlerService->getLinkList($currentUser), fn (Link $link) => $link->testable);
             $table->addRow([$currentUser, count($linksToCrawl[$key]), count($crawlerService->getLinkList($currentUser))]);
             $dashboard?->finishUser($currentUser ?: 'visitor', count($linksToCrawl[$key]));
             if (!$dashboard) {
@@ -235,7 +238,7 @@ class CrawlCommand
         $dashboard?->stop();
         $table->render();
 
-        $outputFilename = $this->bag->get('kernel.project_dir') . '/tests/crawldata.json';
+        $outputFilename = $this->bag->get('kernel.project_dir').'/tests/crawldata.json';
         file_put_contents($outputFilename, json_encode($linksToCrawl, JSON_UNESCAPED_LINE_TERMINATORS + JSON_PRETTY_PRINT + JSON_UNESCAPED_SLASHES));
 
         $table2 = new Table($io);
@@ -285,7 +288,7 @@ class CrawlCommand
         }
         $text = trim(preg_replace('/\s+/', ' ', strip_tags($html)));
 
-        return mb_strlen($text) > 300 ? mb_substr($text, 0, 300) . '…' : $text;
+        return mb_strlen($text) > 300 ? mb_substr($text, 0, 300).'…' : $text;
     }
 
     /**
@@ -347,7 +350,7 @@ final class CrawlDashboard
     public function __construct(array $allUsers)
     {
         foreach ($allUsers as $u) {
-            $this->userLines[$u ?: 'visitor'] = '  ' . ($u ?: 'visitor') . ' — pending';
+            $this->userLines[$u ?: 'visitor'] = '  '.($u ?: 'visitor').' — pending';
         }
 
         $this->startedAt = microtime(true);
@@ -405,13 +408,13 @@ final class CrawlDashboard
     public function startUser(string $username): void
     {
         $this->currentUser = $username;
-        $this->userLines[$username] = '▶ ' . $username . ' — crawling…';
+        $this->userLines[$username] = '▶ '.$username.' — crawling…';
         $this->render($username, force: true);
     }
 
     public function finishUser(string $username, int $testableCount): void
     {
-        $this->userLines[$username] = '✓ ' . $username . ' — ' . $testableCount . ' links';
+        $this->userLines[$username] = '✓ '.$username.' — '.$testableCount.' links';
         $this->render($username, force: true);
     }
 

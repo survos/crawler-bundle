@@ -54,17 +54,17 @@ final class RoutesExtractor
                 continue;
             }
 
-            $hasDynamicScheme = \array_filter(\array_map(static fn($item) => \str_contains($item, '{'), $route->getSchemes()));
+            $hasDynamicScheme = \array_filter(\array_map(static fn ($item) => \str_contains($item, '{'), $route->getSchemes()));
             if ($hasDynamicScheme) {
                 continue;
             }
 
-            $hasNonDynamicHost = ($route->getHost() && $route->getHost() !== 'localhost') || ($defaultHost && $defaultHost !== 'localhost');
-            $hasNonDynamicScheme = $route->getSchemes() || ($defaultScheme && $defaultScheme !== 'http');
+            $hasNonDynamicHost = ($route->getHost() && 'localhost' !== $route->getHost()) || ($defaultHost && 'localhost' !== $defaultHost);
+            $hasNonDynamicScheme = $route->getSchemes() || ($defaultScheme && 'http' !== $defaultScheme);
 
             if ($hasNonDynamicHost || $hasNonDynamicScheme) {
                 // Generate full URI if route is configured with a host.
-                //$routerReferenceType = UrlGeneratorInterface::ABSOLUTE_URL;
+                // $routerReferenceType = UrlGeneratorInterface::ABSOLUTE_URL;
             }
 
             foreach ($methods as $method) {

@@ -4,29 +4,25 @@ declare(strict_types=1);
 
 namespace Survos\CrawlerBundle;
 
-use Survos\Kit\Traits\HasConfigurableRoutes;
 use Survos\CrawlerBundle\Command\CrawlCommand;
 use Survos\CrawlerBundle\Command\GenerateTestsCommand;
-// use Survos\CrawlerBundle\Command\MakeSmokeTestCommand;
 use Survos\CrawlerBundle\Controller\CrawlerController;
+// use Survos\CrawlerBundle\Command\MakeSmokeTestCommand;
 use Survos\CrawlerBundle\Menu\CrawlerBundleMenuSubscriber;
 use Survos\CrawlerBundle\Services\CrawlerService;
+use Survos\Kit\AbstractSurvosBundle;
+use Survos\Kit\Traits\HasConfigurableRoutes;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\DependencyInjection\Reference;
-use Survos\Kit\AbstractSurvosBundle;
 use Symfony\Component\HttpKernel\Bundle\Bundle;
-use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 
 class SurvosCrawlerBundle extends AbstractSurvosBundle
 {
     use HasConfigurableRoutes;
 
-    /**
-     * @param array<mixed> $config
-     */
     public function build(ContainerBuilder $container): void
     {
         parent::build($container);
@@ -37,7 +33,6 @@ class SurvosCrawlerBundle extends AbstractSurvosBundle
     {
         $this->captureRouteConfig($config);
         $this->registerRouteLoader($builder);
-
 
         // if controller class extends AbstractController, the tags and injected services aren't needed.
         $builder->autowire(CrawlerController::class)
@@ -62,9 +57,8 @@ class SurvosCrawlerBundle extends AbstractSurvosBundle
                 ->setAutoconfigured(true)
                 ->setPublic(true)
                 ->setAutowired(true)
-                ->addTag('console.command');;
+                ->addTag('console.command');
         }
-
 
         $crawler_service_id = 'survos.crawler_service';
         $builder
@@ -86,7 +80,7 @@ class SurvosCrawlerBundle extends AbstractSurvosBundle
             ->setArgument('$kernel', new Reference('kernel'))
             ->setArgument('$security', new Reference('security.helper'))
             ->setArgument('$linkList', [])
-            ->setArgument('$username', "")
+            ->setArgument('$username', '')
             ->setArgument('$maxDepth', $config['max_depth'])
             ->setArgument('$maxVisits', $config['max_per_route'])
 //            ->setArgument('$tokenStorage', new Reference('security.untracked_token_storage'))
@@ -95,7 +89,7 @@ class SurvosCrawlerBundle extends AbstractSurvosBundle
             ->setArgument('$sessionStorageFactory', new Reference('session.factory'))
             ->setAutoconfigured(true)
             ->setPublic(true)
-            ->setAutowired(true);;
+            ->setAutowired(true);
         $container->services()->alias(CrawlerService::class, $crawler_service_id);
 
         //        $definition->setArgument('$widthFactor', $config['widthFactor']);
