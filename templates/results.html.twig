@@ -82,8 +82,8 @@
             <h3 class="card-title">Routes crawled</h3>
             <div class="card-actions text-secondary">slowest first</div>
         </div>
-        <div class="table-responsive">
-            <table class="table table-sm table-vcenter card-table">
+        <div class="table-responsive"{% if gridEnabled %} data-controller="survos--grid-bundle--grid" data-survos--grid-bundle--grid-options-value='{"order": [[3, "desc"]]}'{% endif %}>
+            <table class="table table-sm table-vcenter card-table"{% if gridEnabled %} data-survos--grid-bundle--grid-target="table"{% endif %}>
                 <thead>
                 <tr>
                     <th>Route</th>
@@ -100,10 +100,10 @@
                         <td>{{ stat.route }}</td>
                         <td class="text-end">{{ stat.visits }}</td>
                         <td class="text-end">{{ stat.paths }}</td>
-                        <td class="text-end">
+                        <td class="text-end" data-order="{{ stat.avgDuration ?? -1 }}">
                             {{ stat.avgDuration is null ? '--' : stat.avgDuration|round ~ ' ms' }}
                         </td>
-                        <td class="text-end text-secondary">
+                        <td class="text-end text-secondary" data-order="{{ stat.maxDuration ?? -1 }}">
                             {{ stat.maxDuration is null ? '--' : stat.maxDuration|round ~ ' ms' }}
                         </td>
                         <td>
