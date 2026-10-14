@@ -118,16 +118,13 @@
         </div>
     </div>
 
-    {# The old markup here called <twig:simple_datatables>, a component that does not exist,
-       and leaned on searchPanes JS in a block named "XXjavascripts" -- which never renders.
-       Both were unreachable until the %kernel.environment typo above was fixed, so this is a
-       plain table instead. #}
+    {# Enhance the existing table only when grid-bundle is enabled. #}
     <div class="card">
         <div class="card-header">
             <h3 class="card-title">Links</h3>
         </div>
-        <div class="table-responsive">
-            <table class="table table-sm table-vcenter card-table" id="crawler-table">
+        <div class="table-responsive"{% if gridEnabled %} data-controller="survos--grid-bundle--grid"{% endif %}>
+            <table class="table table-sm table-vcenter card-table" id="crawler-table"{% if gridEnabled %} data-survos--grid-bundle--grid-target="table"{% endif %}>
                 <thead>
                 <tr>
                     <th>User</th>

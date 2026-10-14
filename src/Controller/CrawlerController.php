@@ -44,6 +44,7 @@ class CrawlerController extends AbstractController
         return $this->render('@SurvosCrawler/results.html.twig', [
             'crawlerConfig' => $crawlerService->getConfig(),
             'tableData' => $tableData,
+            'gridEnabled' => isset($this->getParameter('kernel.bundles')['SurvosGridBundle']),
             'routeStats' => $this->routeStats($tableData),
             'lastCrawl' => (new \DateTimeImmutable())->setTimestamp((int) filemtime($filename)),
             'crawldata' => $crawlData,
