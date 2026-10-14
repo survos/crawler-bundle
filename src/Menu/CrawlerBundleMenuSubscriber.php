@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace Survos\CrawlerBundle\Menu;
 
-use Survos\TablerBundle\Event\MenuEvent;
-use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
+use Survos\MenuBundle\Attribute\AsMenuListener;
+use Survos\MenuBundle\Event\MenuEvent;
+use Survos\MenuBundle\MenuSlot;
 
 /**
  * Puts the crawl results under the admin navbar, the same way command-bundle
@@ -19,7 +20,7 @@ class CrawlerBundleMenuSubscriber
     {
     }
 
-    #[AsEventListener(event: MenuEvent::ADMIN_NAVBAR_MENU)]
+    #[AsMenuListener(MenuSlot::ADMIN_NAVBAR_MENU)]
     public function onAdminNavbarMenu(MenuEvent $event): void
     {
         if ('dev' !== $this->env) {

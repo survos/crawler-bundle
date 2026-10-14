@@ -43,9 +43,9 @@ class SurvosCrawlerBundle extends AbstractSurvosBundle
 //            ->setArgument('$bag', new Reference('parameter_bag'))
         ;
 
-        // The admin-navbar link only makes sense when tabler-bundle is installed --
-        // MenuEvent lives there, and this bundle must not hard-require it.
-        if (class_exists(\Survos\TablerBundle\Event\MenuEvent::class)) {
+        // The admin-navbar link needs survos/menu-bundle (MenuEvent, MenuSlot) -- usually
+        // there via tabler-bundle, which draws the admin navbar. Neither is a hard require.
+        if (class_exists(\Survos\MenuBundle\MenuSlot::class)) {
             $builder->autowire(CrawlerBundleMenuSubscriber::class)
                 ->setAutoconfigured(true)
                 ->setPublic(false)
