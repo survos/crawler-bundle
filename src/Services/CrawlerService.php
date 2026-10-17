@@ -390,7 +390,7 @@ class CrawlerService
                     return null;
                 }
 
-                $cleanHref = str_replace($this->baseUrl, '', $href);
+                $cleanHref = str_replace($this->baseUrl, '', $this->absolutizeSchemeRelative($href));
                 $cleanHref = u($cleanHref)->before('#')->toString();
                 if (empty($cleanHref)) {
                     return null;
@@ -432,9 +432,24 @@ class CrawlerService
         return rtrim(str_ends_with($basePath, '/') ? $basePath : \dirname($basePath), '/').'/'.$href;
     }
 
+    /**
+     * A scheme-relative href ("//host/path", e.g. from url(..., schemeRelative: true)) starts
+     * with "/", so it would otherwise be treated as a local path and requested as
+     * baseUrl."//host/path". Give it the base URL's scheme so it's stripped like any
+     * absolute link to this host, and skipped as external if it points elsewhere.
+     */
+    private function absolutizeSchemeRelative(string $href): string
+    {
+        if (!str_starts_with($href, '//')) {
+            return $href;
+        }
+
+        return (parse_url($this->baseUrl, PHP_URL_SCHEME) ?: 'http').':'.$href;
+    }
+
     private function cleanup(string $href): ?string
     {
-        $cleanHref = str_replace($this->baseUrl, '', $href);
+        $cleanHref = str_replace($this->baseUrl, '', $this->absolutizeSchemeRelative($href));
         $cleanHref = u($cleanHref)->before('#')->toString();
         if (empty($cleanHref)) {
             return null;
